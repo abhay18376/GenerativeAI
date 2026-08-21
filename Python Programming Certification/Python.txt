@@ -1,0 +1,12 @@
+1. Pre-Recorded Session from Old Batches --- >  Array Manipulation using NumPy
+2. 						Data Manipulation using Pandas
+3.						Data Visualization using Matplotlib and Seaborn  
+4. 						GUI Programing
+5.                                              Developing Web Maps and Representing Information using Plots (Self-paced)
+6.						Web Scraping and Computer Vision using OpenCV (Self-Paced)
+7.                                              Database Integration with Python (Self-Paced)    1:34
+
+
+2:43:58
+
+https://www.jobseeker.com/app/resumes/492dc49e-012a-4868-9a28-56bcee95ea89/edit

@@ -1,0 +1,6 @@
+Java
+C#
+Oracle
+Sql Server
+Angular
+Reacts

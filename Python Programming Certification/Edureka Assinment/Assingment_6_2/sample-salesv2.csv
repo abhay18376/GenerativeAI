@@ -1,0 +1,8 @@
+name,product,unit_price,quantity,net_price,date
+Alice,Laptop,1000,1,1000,2024-03-01
+Bob,Phone,500,2,1000,2024-03-02
+Alice,Tablet,300,3,900,2024-03-03
+David,Monitor,200,1,200,2024-03-04
+Bob,Laptop,1000,1,1000,2024-03-05
+Alice,Phone,500,2,1000,2024-03-06
+David,Tablet,300,2,600,2024-03-07

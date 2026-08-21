@@ -1,0 +1,3 @@
+Hello how r you
+ Welcome to pythonAppending the fileAppending the file
+ r + mode
