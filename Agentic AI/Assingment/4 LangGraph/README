@@ -1,0 +1,13 @@
+step 1:  install all libraries given in requirements.txt
+step 2:  run finalapp.py
+step 3:  open localhost:7860 in browser
+step 4:  type following word in textbox
+    reset password
+    change password
+    billing
+    It will give appropraite output
+step 5: type any word given below
+    hi, hello, hey, thanks, thank you
+    your output will be filtered
+step 6: insert any other word
+    I'm escalating this to a human agent for further review.

@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Patient Assistance System</title>
+  <style>
+    :root{--bg:#f7fafc;--card:#fff;--muted:#6b7280;--accent:#4f46e5;--danger:#dc2626}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,Segoe UI,Roboto,system-ui,-apple-system,"Helvetica Neue",Arial;background:var(--bg);color:#111}
+    .container{max-width:1200px;margin:28px auto;padding:20px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#ef4444,#fb923c);display:flex;align-items:center;justify-content:center;color:white;font-weight:700}
+    h1{margin:0;font-size:20px}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+    .controls{display:flex;gap:8px;align-items:center}
+    button{background:var(--accent);color:white;border:none;padding:8px 12px;border-radius:8px;cursor:pointer}
+    button.secondary{background:#e6eefc;color:#0b3bff}
+
+    main{display:grid;grid-template-columns:1fr 2fr;gap:18px}
+    .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 1px 2px rgba(16,24,40,0.04)}
+
+    /* left column */
+    .search-row{display:flex;gap:8px;align-items:center}
+    .search-row input{flex:1;padding:10px;border-radius:8px;border:1px solid #e6e9ef}
+    .list{margin-top:12px;max-height:520px;overflow:auto;display:flex;flex-direction:column;gap:8px}
+    .patient{display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:10px;border:1px solid transparent;cursor:pointer}
+    .patient:hover{background:#fbfbff}
+    .patient.selected{box-shadow:0 0 0 2px rgba(79,70,229,0.12)}
+    .meta{color:var(--muted);font-size:13px}
+
+    .actions{display:flex;gap:8px;margin-top:12px}
+    .actions button{flex:1}
+
+    /* right column */
+    .details .row{display:flex;justify-content:space-between;align-items:center}
+    .small{font-size:13px;color:var(--muted)}
+    .grid-3{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+    .vitals{background:#fff;padding:10px;border-radius:10px}
+
+    /* bottom tools */
+    .tools{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+
+    footer{margin-top:20px;color:var(--muted);font-size:13px;display:flex;justify-content:space-between}
+
+    @media (max-width:900px){main{grid-template-columns:1fr} .tools{grid-template-columns:1fr} .grid-3{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="logo">PA</div>
+        <div>
+          <h1>Patient Assistance System</h1>
+          <p class="lead">Fast access to patients, triage and resources</p>
+        </div>
+      </div>
+      <div class="controls">
+        <button onclick="openNewPatient()">+ New Patient</button>
+        <button class="secondary" onclick="openSettings()">Settings</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="card left">
+        <div class="search-row">
+          <input id="search" placeholder="Search patients by name or ID..." oninput="renderList()" />
+          <button onclick="clearSearch()">Clear</button>
+        </div>
+
+        <div id="patientList" class="list" aria-live="polite" role="list"></div>
+
+        <div class="actions">
+          <button onclick="startTriage()">Start Triage</button>
+          <button style="background:var(--danger)" onclick="quickCall()">Emergency Call</button>
+        </div>
+      </section>
+
+      <section class="card details">
+        <div id="detailsArea">
+          <div style="padding:40px;text-align:center;color:var(--muted)">Select a patient to view details</div>
+        </div>
+
+        <div class="tools">
+          <div class="card">
+            <strong>Symptom Checker</strong>
+            <p class="small">Enter symptoms to get next steps</p>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <input id="symptoms" placeholder="e.g. chest pain" />
+              <button onclick="runSymptomCheck()">Check</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <strong>Appointments</strong>
+            <p class="small">Next available</p>
+            <div style="margin-top:8px;font-weight:600">Sept 25, 2025 — 10:30 AM</div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button onclick="book()">Book</button>
+              <button onclick="viewCalendar()">Calendar</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <strong>Resources</strong>
+            <ul class="small">
+              <li>Quick triage guide (PDF)</li>
+              <li>Local hospitals & ambulances</li>
+              <li>Insurance & billing help</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div>&copy; <span id="year"></span> Patient Assistance System</div>
+      <div>Version 1.0 • Accessibility-ready</div>
+    </footer>
+  </div>
+
+  <script>
+    // sample patients
+    const patients = [
+      {id:'P-1001', name:'Asha Patel', age:32, priority:'High', lastVisit:'2025-09-12', notes:['09/12/2025 - Follow-up after chest pain.','06/10/2025 - BP elevated.']},
+      {id:'P-1002', name:'Rohit Sharma', age:45, priority:'Medium', lastVisit:'2025-06-05', notes:['06/05/2025 - Diabetes check.']},
+      {id:'P-1003', name:'Meera Joshi', age:67, priority:'High', lastVisit:'2025-08-21', notes:['08/21/2025 - Shortness of breath.']}
+    ];
+
+    let selectedId = null;
+    const listEl = document.getElementById('patientList');
+    const detailsEl = document.getElementById('detailsArea');
+    const searchEl = document.getElementById('search');
+
+    function renderList(){
+      const q = searchEl.value.trim().toLowerCase();
+      listEl.innerHTML = '';
+      const filtered = patients.filter(p => (p.name+' '+p.id).toLowerCase().includes(q));
+      if(filtered.length===0){listEl.innerHTML = '<div style="color:var(--muted);padding:8px">No patients found</div>';return}
+      filtered.forEach(p =>{
+        const item = document.createElement('div');
+        item.className = 'patient' + (p.id===selectedId? ' selected':'');
+        item.tabIndex = 0;
+        item.setAttribute('role','listitem');
+        item.innerHTML = `<div><div style="font-weight:600">${p.name}</div><div class='meta'>${p.id} • Age ${p.age}</div></div><div style='text-align:right'><div style='font-weight:600;color:${p.priority==='High'?'var(--danger)':'#374151'}'>${p.priority}</div><div class='meta'>Last: ${p.lastVisit}</div></div>`;
+        item.onclick = ()=> selectPatient(p.id);
+        item.onkeypress = (e)=>{ if(e.key==='Enter') selectPatient(p.id)};
+        listEl.appendChild(item);
+      })
+    }
+
+    function selectPatient(id){
+      selectedId = id;
+      renderList();
+      const p = patients.find(x=>x.id===id);
+      detailsEl.innerHTML = `
+        <div class="row">
+          <div>
+            <h2 style="margin:0">${p.name}</h2>
+            <div class="small">${p.id} • Age ${p.age}</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button onclick="openMedications('${p.id}')">Medications</button>
+            <button onclick="addNote('${p.id}')" class="secondary">Add Note</button>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;background:#fff;padding:12px;border-radius:10px">
+          <strong>Recent Notes</strong>
+          <ul style="margin:8px 0;color:var(--muted)">
+            ${p.notes.map(n=>`<li>${n}</li>`).join('')}
+          </ul>
+        </div>
+
+        <div style="margin-top:12px" class="grid-3">
+          <div class="vitals">
+            <strong>Vitals (last)</strong>
+            <div class="small">BP: 140/90</div>
+            <div class="small">Pulse: 88</div>
+            <div class="small">Temp: 98.6°F</div>
+          </div>
+          <div style="background:#fff;padding:10px;border-radius:10px">
+            <strong>Risk</strong>
+            <div style="margin-top:8px;color:${p.priority==='High'?'var(--danger)':'#16a34a'}">${p.priority} ${p.priority==='High'?'- recent concern':''}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function clearSearch(){ searchEl.value=''; renderList(); }
+    function startTriage(){ alert('Start triage flow (placeholder)'); }
+    function quickCall(){ alert('Initiating emergency call...'); }
+    function openNewPatient(){ alert('Open new patient modal (placeholder)'); }
+    function openSettings(){ alert('Open settings (placeholder)'); }
+    function openMedications(id){ alert('Open medications for '+id); }
+    function addNote(id){ const note=prompt('Enter note for '+id); if(note){ const p=patients.find(x=>x.id===id); p.notes.unshift(new Date().toLocaleDateString()+' - '+note); selectPatient(id);} }
+    function runSymptomCheck(){ alert('Symptom triage (placeholder): ' + document.getElementById('symptoms').value); }
+    function book(){ alert('Open booking dialog (placeholder)'); }
+    function viewCalendar(){ alert('Open calendar (placeholder)'); }
+
+    document.getElementById('year').textContent = new Date().getFullYear();
+    renderList();
+  </script>
+</body>
+</html>

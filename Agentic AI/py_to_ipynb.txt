@@ -1,0 +1,2 @@
+pip install jupytext
+jupytext --to ipynb your_script.py

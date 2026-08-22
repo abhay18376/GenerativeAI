@@ -1,0 +1,1706 @@
+</div>
+
+                <h3>2. Saga Pattern for Distributed Transactions</h3>
+                <p>Managing complex workflows across multiple services:</p>
+                
+                <div class="code-block" data-lang="TypeScript">
+<span class="keyword">interface</span> <span class="highlight">SagaStep</span>&lt;T&gt; {
+  name: <span class="keyword">string</span>;
+  execute: (context: T) => <span class="keyword">Promise</span>&lt;<span class="keyword">void</span>&gt;;
+  compensate: (context: T) => <span class="keyword">Promise</span>&lt;<span class="keyword">void</span>&gt;;
+}
+
+<span class="keyword">class</span> <span class="highlight">SagaOrchestrator</span>&lt;T&gt; {
+  <span class="keyword">private</span> steps: SagaStep&lt;T&gt;[] = [];
+  <span class="keyword">private</span> executedSteps: SagaStep&lt;T&gt;[] = [];
+  
+  addStep(step: SagaStep&lt;T&gt;): <span class="keyword">void</span> {
+    <span class="keyword">this</span>.steps.push(step);
+  }
+  
+  <span class="keyword">async</span> execute(context: T): <span class="keyword">Promise</span>&lt;<span class="keyword">void</span>&gt; {
+    <span class="keyword">for</span> (<span class="keyword">const</span> step <span class="keyword">of</span> <span class="keyword">this</span>.steps) {
+      <span class="keyword">try</span> {
+        <span class="keyword">await</span> step.execute(context);
+        <span class="keyword">this</span>.executedSteps.push(step);
+      } <span class="keyword">catch</span> (error) {
+        <span class="comment">// Rollback on failure</span>
+        <span class="keyword">await</span> <span class="keyword">this</span>.compensate(context);
+        <span class="keyword">throw</span> <span class="keyword">new</span> Error(<span class="string">`Saga failed at step: ${step.name}`</span>);
+      }
+    }
+  }
+  
+  <span class="keyword">private</span> <span class="keyword">async</span> compensate(context: T): <span class="keyword">Promise</span>&lt;<span class="keyword">void</span>&gt; {
+    <span class="keyword">for</span> (<span class="keyword">const</span> step <span class="keyword">of</span> <span class="keyword">this</span>.executedSteps.reverse()) {
+      <span class="keyword">await</span> step.compensate(context);
+    }
+  }
+}</div>
+
+                <h3>3. Rate Limiting & Throttling</h3>
+                
+                <div class="interactive-demo">
+                    <h4>⚡ Rate Limiter Visualization</h4>
+                    <div style="display: flex; gap: 2rem; align-items: center; flex-wrap: wrap;">
+                        <div>
+                            <label>Requests per second: <span id="rate-value">10</span></label>
+                            <input type="range" id="rate-slider" min="1" max="100" value="10" onchange="updateRateLimit(this.value)" style="width: 200px;">
+                        </div>
+                        <button onclick="startRateLimitTest()">Start Test</button>
+                        <button onclick="stopRateLimitTest()">Stop Test</button>
+                    </div>
+                    <div id="rate-limit-viz" style="margin-top: 1rem; height: 100px; background: #f8fafc; border-radius: 10px; position: relative; overflow: hidden;">
+                        <!-- Animated request visualization will appear here -->
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+                        <div style="text-align: center;">
+                            <small>Allowed</small>
+                            <div id="allowed-count" style="font-size: 1.5rem; color: var(--success);">0</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <small>Throttled</small>
+                            <div id="throttled-count" style="font-size: 1.5rem; color: var(--warning);">0</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <small>Rejected</small>
+                            <div id="rejected-count" style="font-size: 1.5rem; color: var(--error);">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>4. Event Sourcing with MCP</h3>
+                <p>Capturing all changes as a sequence of events:</p>
+                
+                <div class="code-block" data-lang="JavaScript">
+<span class="keyword">class</span> <span class="highlight">EventStore</span> {
+  <span class="keyword">constructor</span>() {
+    <span class="keyword">this</span>.events = [];
+    <span class="keyword">this</span>.snapshots = <span class="keyword">new</span> Map();
+    <span class="keyword">this</span>.projections = <span class="keyword">new</span> Map();
+  }
+  
+  <span class="keyword">async</span> append(event) {
+    <span class="keyword">const</span> eventWithMeta = {
+      ...event,
+      timestamp: Date.now(),
+      sequenceNumber: <span class="keyword">this</span>.events.length + <span class="highlight">1</span>,
+      correlationId: generateCorrelationId()
+    };
+    
+    <span class="keyword">this</span>.events.push(eventWithMeta);
+    <span class="keyword">await</span> <span class="keyword">this</span>.updateProjections(eventWithMeta);
+    <span class="keyword">await</span> <span class="keyword">this</span>.notifySubscribers(eventWithMeta);
+    
+    <span class="comment">// Create snapshot every 100 events</span>
+    <span class="keyword">if</span> (eventWithMeta.sequenceNumber % <span class="highlight">100</span> === <span class="highlight">0</span>) {
+      <span class="keyword">await</span> <span class="keyword">this</span>.createSnapshot(eventWithMeta.aggregateId);
+    }
+  }
+  
+  <span class="keyword">async</span> replay(aggregateId, fromSequence = <span class="highlight">0</span>) {
+    <span class="keyword">const</span> snapshot = <span class="keyword">this</span>.snapshots.get(aggregateId);
+    <span class="keyword">let</span> state = snapshot ? snapshot.state : {};
+    <span class="keyword">let</span> startFrom = snapshot ? snapshot.sequenceNumber : fromSequence;
+    
+    <span class="keyword">const</span> relevantEvents = <span class="keyword">this</span>.events
+      .filter(e => e.aggregateId === aggregateId && e.sequenceNumber > startFrom);
+    
+    <span class="keyword">for</span> (<span class="keyword">const</span> event <span class="keyword">of</span> relevantEvents) {
+      state = <span class="keyword">this</span>.applyEvent(state, event);
+    }
+    
+    <span class="keyword">return</span> state;
+  }
+}</div>
+
+                <h3>5. Performance Optimization Techniques</h3>
+                
+                <div class="feature-grid">
+                    <div class="feature-card" style="cursor: default;">
+                        <h4>🚀 Connection Pooling</h4>
+                        <p>Reuse connections to reduce overhead and improve latency.</p>
+                    </div>
+                    <div class="feature-card" style="cursor: default;">
+                        <h4>📦 Message Batching</h4>
+                        <p>Group multiple messages together for efficient transmission.</p>
+                    </div>
+                    <div class="feature-card" style="cursor: default;">
+                        <h4>🗜️ Compression</h4>
+                        <p>Reduce payload size with gzip or Brotli compression.</p>
+                    </div>
+                    <div class="feature-card" style="cursor: default;">
+                        <h4>⚡ Binary Protocols</h4>
+                        <p>Use Protocol Buffers or MessagePack for faster serialization.</p>
+                    </div>
+                    <div class="feature-card" style="cursor: default;">
+                        <h4>🔄 Caching Strategies</h4>
+                        <p>Implement multi-level caching with TTL and invalidation.</p>
+                    </div>
+                    <div class="feature-card" style="cursor: default;">
+                        <h4>🎯 Load Balancing</h4>
+                        <p>Distribute requests across multiple instances efficiently.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quiz Section -->
+        <div id="quiz" class="content-section">
+            <div class="card">
+                <h2>📝 Knowledge Check</h2>
+                
+                <div class="quiz-section">
+                    <div id="quiz-container">
+                        <h3 id="question-title">Question 1 of 10</h3>
+                        <p id="question-text" style="font-size: 1.1rem; margin: 1rem 0;">Loading question...</p>
+                        <div id="quiz-options">
+                            <!-- Options will be inserted here -->
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem;">
+                            <button id="prev-btn" onclick="previousQuestion()" disabled>Previous</button>
+                            <span id="score-display">Score: 0/0</span>
+                            <button id="next-btn" onclick="nextQuestion()">Next</button>
+                        </div>
+                    </div>
+                    
+                    <div id="quiz-results" style="display: none;">
+                        <h3>Quiz Complete! 🎉</h3>
+                        <div style="text-align: center; margin: 2rem 0;">
+                            <div style="font-size: 3rem; color: var(--primary);" id="final-score">0%</div>
+                            <p id="result-message" style="font-size: 1.2rem; margin: 1rem 0;"></p>
+                        </div>
+                        <button onclick="restartQuiz()">Retake Quiz</button>
+                        <button onclick="showDetailedResults()">View Detailed Results</button>
+                    </div>
+                </div>
+                
+                <div class="progress-bar" style="margin-top: 2rem;">
+                    <div id="quiz-progress" class="progress-fill">0%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Navigation
+        function showSection(sectionId) {
+            const sections = document.querySelectorAll('.content-section');
+            const tabs = document.querySelectorAll('.nav-tab');
+            
+            sections.forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            tabs.forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            document.getElementById(sectionId).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // MCP Simulation
+        let mcpState = 'idle';
+        
+        function simulateMCPFlow(step) {
+            const output = document.getElementById('mcp-output');
+            const status = document.getElementById('mcp-status');
+            const statusDot = status.querySelector('.status-dot');
+            const statusText = status.querySelector('span:last-child');
+            
+            const timestamp = new Date().toISOString();
+            
+            switch(step) {
+                case 'init':
+                    output.textContent = `[${timestamp}] Initializing MCP connection...
+[${timestamp}] Creating secure channel with TLS 1.3
+[${timestamp}] Generating session ID: ${generateSessionId()}
+[${timestamp}] Connection initialized successfully`;
+                    statusDot.className = 'status-dot pending';
+                    statusText.textContent = 'Initializing';
+                    break;
+                    
+                case 'handshake':
+                    output.textContent += `
+
+[${timestamp}] Starting handshake protocol...
+[${timestamp}] Client capabilities: ["tools/call", "context/manage", "streaming"]
+[${timestamp}] Server capabilities: ["tools/register", "events/subscribe"]
+[${timestamp}] Handshake complete - Protocol version: 2.0`;
+                    statusDot.className = 'status-dot pending';
+                    statusText.textContent = 'Handshaking';
+                    break;
+                    
+                case 'request':
+                    output.textContent += `
+
+[${timestamp}] Sending MCP request...
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "analyze_data",
+    "arguments": {"dataset": "user_metrics", "period": "30d"}
+  },
+  "id": "req_${Math.random().toString(36).substr(2, 9)}"
+}`;
+                    statusDot.className = 'status-dot pending';
+                    statusText.textContent = 'Request Sent';
+                    break;
+                    
+                case 'process':
+                    output.textContent += `
+
+[${timestamp}] Server processing request...
+[${timestamp}] Tool execution started
+[${timestamp}] Accessing data source...
+[${timestamp}] Running analysis algorithms...
+[${timestamp}] Generating response...`;
+                    statusDot.className = 'status-dot warning';
+                    statusText.textContent = 'Processing';
+                    break;
+                    
+                case 'response':
+                    output.textContent += `
+
+[${timestamp}] Response received:
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "status": "success",
+    "data": {
+      "total_users": 15234,
+      "active_rate": 0.73,
+      "growth": 0.12
+    },
+    "execution_time": 234
+  },
+  "id": "req_${Math.random().toString(36).substr(2, 9)}"
+}
+[${timestamp}] MCP flow complete`;
+                    statusDot.className = 'status-dot connected';
+                    statusText.textContent = 'Complete';
+                    break;
+            }
+        }
+
+        // A2A Security Demo
+        let encryptedMessage = '';
+        
+        function encryptA2AMessage() {
+            const message = document.getElementById('a2a-message').value;
+            const log = document.getElementById('a2a-security-log');
+            const received = document.getElementById('received-message');
+            
+            if (!message) {
+                alert('Please enter a message to encrypt');
+                return;
+            }
+            
+            // Simulate encryption
+            encryptedMessage = btoa(message); // Simple base64 for demo
+            const signature = generateSignature();
+            
+            log.textContent = `[${new Date().toISOString()}] Encrypting message...
+[${new Date().toISOString()}] Algorithm: AES-256-GCM
+[${new Date().toISOString()}] Generating digital signature: ${signature}
+[${new Date().toISOString()}] Message encrypted successfully
+[${new Date().toISOString()}] Transmitting over secure channel...`;
+            
+            setTimeout(() => {
+                received.textContent = `Encrypted payload received:
+${encryptedMessage}
+
+Signature: ${signature}
+Status: Verified ✓`;
+                log.textContent += `
+[${new Date().toISOString()}] Message delivered successfully`;
+            }, 1000);
+        }
+        
+        function decryptA2AMessage() {
+            if (!encryptedMessage) {
+                alert('No encrypted message to decrypt');
+                return;
+            }
+            
+            const log = document.getElementById('a2a-security-log');
+            const received = document.getElementById('received-message');
+            
+            log.textContent += `
+
+[${new Date().toISOString()}] Decrypting message...
+[${new Date().toISOString()}] Verifying signature...
+[${new Date().toISOString()}] Signature valid ✓`;
+            
+            setTimeout(() => {
+                const decrypted = atob(encryptedMessage);
+                received.textContent = `Decrypted message:
+"${decrypted}"
+
+Status: Successfully decrypted
+Integrity: Verified`;
+                log.textContent += `
+[${new Date().toISOString()}] Message decrypted successfully`;
+            }, 500);
+        }
+
+        // Simulator Functions
+        function executeMCPCall() {
+            const tool = document.getElementById('tool-select').value;
+            const params = document.getElementById('mcp-params').value;
+            const log = document.getElementById('comm-log');
+            const response = document.getElementById('service-response');
+            
+            const timestamp = new Date().toISOString();
+            
+            log.textContent += `
+[${timestamp}] MCP Call Initiated
+Tool: ${tool}
+Parameters: ${params || '{}'}
+---
+Sending request to A2A endpoint...
+`;
+            
+            setTimeout(() => {
+                const result = {
+                    status: 'success',
+                    tool: tool,
+                    result: generateMockResult(tool),
+                    latency: Math.floor(Math.random() * 100) + 50
+                };
+                
+                response.textContent = JSON.stringify(result, null, 2);
+                log.textContent += `[${new Date().toISOString()}] Response received in ${result.latency}ms
+`;
+            }, 1500);
+        }
+        
+        function clearLogs() {
+            document.getElementById('comm-log').textContent = '// Logs cleared\n';
+            document.getElementById('service-response').textContent = '// Service endpoint ready\n// Waiting for incoming requests...\n';
+        }
+        
+        function exportLogs() {
+            const logs = document.getElementById('comm-log').textContent;
+            const blob = new Blob([logs], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `mcp-a2a-logs-${Date.now()}.txt`;
+            a.click();
+        }
+
+        // Performance Benchmark
+        let benchmarkInterval;
+        
+        function runBenchmark() {
+            let rps = 0;
+            let latencies = [];
+            let successCount = 0;
+            let totalCount = 0;
+            
+            benchmarkInterval = setInterval(() => {
+                rps = Math.floor(Math.random() * 1000) + 500;
+                const latency = Math.floor(Math.random() * 50) + 10;
+                latencies.push(latency);
+                if (latencies.length > 10) latencies.shift();
+                
+                totalCount++;
+                if (Math.random() > 0.02) successCount++;
+                
+                document.getElementById('rps-counter').textContent = rps;
+                document.getElementById('latency-counter').textContent = 
+                    Math.floor(latencies.reduce((a, b) => a + b, 0) / latencies.length) + 'ms';
+                document.getElementById('success-rate').textContent = 
+                    Math.floor((successCount / totalCount) * 100) + '%';
+                document.getElementById('connections').textContent = 
+                    Math.floor(Math.random() * 100) + 50;
+                
+                drawPerformanceChart(latencies);
+            }, 1000);
+            
+            setTimeout(() => {
+                clearInterval(benchmarkInterval);
+                alert('Benchmark complete!');
+            }, 10000);
+        }
+        
+        function drawPerformanceChart(data) {
+            const canvas = document.getElementById('performance-chart');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            ctx.clearRect(0, 0, width, height);
+            ctx.strokeStyle = '#6366f1';
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            data.forEach((value, index) => {
+                const x = (index / (data.length - 1)) * width;
+                const y = height - ((value / 60) * height);
+                
+                if (index === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            ctx.stroke();
+        }
+
+        // MCP Progress Demo
+        function demonstrateMCPResilience() {
+            const progress = document.getElementById('mcp-progress');
+            let percent = 0;
+            
+            const interval = setInterval(() => {
+                percent += Math.random() * 15;
+                if (percent > 100) {
+                    percent = 100;
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        alert('Resilience demonstration complete!\n\n✓ Automatic retry on failure\n✓ Circuit breaker activated\n✓ Fallback mechanism engaged\n✓ All systems operational');
+                    }, 500);
+                }
+                
+                progress.style.width = percent + '%';
+                progress.textContent = Math.floor(percent) + '%';
+            }, 200);
+        }
+
+        // Rate Limiting Demo
+        let rateLimitInterval;
+        
+        function updateRateLimit(value) {
+            document.getElementById('rate-value').textContent = value;
+        }
+        
+        function startRateLimitTest() {
+            let allowed = 0, throttled = 0, rejected = 0;
+            const rateLimit = parseInt(document.getElementById('rate-slider').value);
+            const viz = document.getElementById('rate-limit-viz');
+            
+            rateLimitInterval = setInterval(() => {
+                const requests = Math.floor(Math.random() * 150);
+                
+                for (let i = 0; i < Math.min(requests, 10); i++) {
+                    const dot = document.createElement('div');
+                    dot.style.position = 'absolute';
+                    dot.style.width = '10px';
+                    dot.style.height = '10px';
+                    dot.style.borderRadius = '50%';
+                    dot.style.left = Math.random() * (viz.offsetWidth - 10) + 'px';
+                    dot.style.top = Math.random() * (viz.offsetHeight - 10) + 'px';
+                    dot.style.transition = 'all 0.5s ease';
+                    
+                    if (allowed < rateLimit) {
+                        dot.style.background = '#10b981';
+                        allowed++;
+                    } else if (throttled < rateLimit / 2) {
+                        dot.style.background = '#f59e0b';
+                        throttled++;
+                    } else {
+                        dot.style.background = '#ef4444';
+                        rejected++;
+                    }
+                    
+                    viz.appendChild(dot);
+                    
+                    setTimeout(() => {
+                        dot.style.opacity = '0';
+                        setTimeout(() => dot.remove(), 500);
+                    }, 1000);
+                }
+                
+                document.getElementById('allowed-count').textContent = allowed;
+                document.getElementById('throttled-count').textContent = throttled;
+                document.getElementById('rejected-count').textContent = rejected;
+                
+                // Reset counters periodically
+                if (Math.random() > 0.8) {
+                    allowed = 0;
+                    throttled = 0;
+                    rejected = 0;
+                }
+            }, 100);
+        }
+        
+        function stopRateLimitTest() {
+            clearInterval(rateLimitInterval);
+            document.getElementById('rate-limit-viz').innerHTML = '';
+        }
+
+        // Quiz Implementation
+        const quizQuestions = [
+            {
+                question: "What is the primary purpose of the Model Context Protocol (MCP)?",
+                options: [
+                    "To compress data for storage",
+                    "To enable AI models to interact with external tools and services while maintaining context",
+                    "To encrypt messages between servers",
+                    "To optimize database queries"
+                ],
+                correct: 1,
+                explanation: "MCP is designed to standardize how AI models communicate with external tools and services while preserving conversation context and state."
+            },
+            {
+                question: "Which A2A communication pattern is best for event-driven architectures?",
+                options: [
+                    "Request-Response",
+                    "Publish-Subscribe",
+                    "Point-to-Point",
+                    "Store-and-Forward"
+                ],
+                correct: 1,
+                explanation: "Publish-Subscribe pattern is ideal for event-driven architectures as it allows multiple consumers to react to events asynchronously."
+            },
+            {
+                question: "What is the purpose of a Circuit Breaker pattern in A2A communication?",
+                options: [
+                    "To encrypt data in transit",
+                    "To compress large messages",
+                    "To prevent cascading failures by stopping requests to failing services",
+                    "To route messages to different servers"
+                ],
+                correct: 2,
+                explanation: "Circuit Breaker pattern prevents cascading failures by detecting when a service is failing and temporarily stopping requests to it."
+            },
+            {
+                question: "In MCP, what is a 'context token' used for?",
+                options: [
+                    "Authentication and authorization",
+                    "Compressing and maintaining conversation history",
+                    "Encrypting sensitive data",
+                    "Load balancing requests"
+                ],
+                correct: 1,
+                explanation: "Context tokens in MCP are used to maintain a compressed representation of conversation history and state."
+            },
+            {
+                question: "Which protocol feature ensures message delivery in A2A communication?",
+                options: [
+                    "UDP transmission",
+                    "Message acknowledgment and retry mechanisms",
+                    "Data compression",
+                    "Load balancing"
+                ],
+                correct: 1,
+                explanation: "Message acknowledgment and retry mechanisms ensure reliable delivery by confirming receipt and resending failed messages."
+            },
+            {
+                question: "What is the Saga pattern used for in distributed systems?",
+                options: [
+                    "Data encryption",
+                    "Managing distributed transactions across multiple services",
+                    "Compressing network traffic",
+                    "Monitoring system performance"
+                ],
+                correct: 1,
+                explanation: "The Saga pattern manages complex workflows across multiple services by breaking them into compensatable steps."
+            },
+            {
+                question: "What is the maximum recommended context size in MCP implementations?",
+                options: [
+                    "1024 tokens",
+                    "4096 tokens",
+                    "8192 tokens",
+                    "Unlimited"
+                ],
+                correct: 2,
+                explanation: "Most MCP implementations recommend a maximum context size of 8192 tokens to balance memory usage and context preservation."
+            },
+            {
+                question: "Which compression algorithm is commonly used in A2A messaging?",
+                options: [
+                    "JPEG",
+                    "MP3",
+                    "Gzip",
+                    "H.264"
+                ],
+                correct: 2,
+                explanation: "Gzip is commonly used for compressing text-based A2A messages due to its efficiency and wide support."
+            },
+            {
+                question: "What does 'idempotency' mean in the context of A2A operations?",
+                options: [
+                    "Operations run faster each time",
+                    "Operations can be safely repeated without changing the result",
+                    "Operations are encrypted",
+                    "Operations are logged"
+                ],
+                correct: 1,
+                explanation: "Idempotent operations can be safely repeated multiple times without changing the result beyond the initial application."
+            },
+            {
+                question: "Which distributed tracing standard is commonly used with MCP and A2A?",
+                options: [
+                    "OAuth 2.0",
+                    "OpenTelemetry",
+                    "WebRTC",
+                    "GraphQL"
+                ],
+                correct: 1,
+                explanation: "OpenTelemetry is the industry standard for distributed tracing, helping track requests across multiple services."
+            }
+        ];
+
+        let currentQuestion = 0;
+        let userAnswers = [];
+        let score = 0;
+
+        function initializeQuiz() {
+            loadQuestion(0);
+        }
+
+        function loadQuestion(index) {
+            const question = quizQuestions[index];
+            document.getElementById('question-title').textContent = `Question ${index + 1} of ${quizQuestions.length}`;
+            document.getElementById('question-text').textContent = question.question;
+            
+            const optionsContainer = document.getElementById('quiz-options');
+            optionsContainer.innerHTML = '';
+            
+            question.options.forEach((option, i) => {
+                const button = document.createElement('button');
+                button.className = 'quiz-option';
+                button.textContent = option;
+                button.onclick = () => selectAnswer(i);
+                optionsContainer.appendChild(button);
+            });
+            
+            // Update progress
+            const progress = ((index + 1) / quizQuestions.length) * 100;
+            document.getElementById('quiz-progress').style.width = progress + '%';
+            document.getElementById('quiz-progress').textContent = Math.round(progress) + '%';
+            
+            // Update navigation buttons
+            document.getElementById('prev-btn').disabled = index === 0;
+            document.getElementById('next-btn').textContent = 
+                index === quizQuestions.length - 1 ? 'Finish' : 'Next';
+            
+            // Update score display
+            document.getElementById('score-display').textContent = 
+                `Score: ${score}/${userAnswers.length}`;
+        }
+
+        function selectAnswer(answerIndex) {
+            const options = document.querySelectorAll('.quiz-option');
+            const question = quizQuestions[currentQuestion];
+            
+            // Clear previous selection for this question
+            options.forEach(opt => {
+                opt.classList.remove('correct', 'incorrect');
+            });
+            
+            // Mark selected answer
+            if (answerIndex === question.correct) {
+                options[answerIndex].classList.add('correct');
+                if (userAnswers[currentQuestion] === undefined) {
+                    score++;
+                }
+            } else {
+                options[answerIndex].classList.add('incorrect');
+                options[question.correct].classList.add('correct');
+            }
+            
+            // Store answer
+            userAnswers[currentQuestion] = answerIndex;
+            
+            // Update score display
+            document.getElementById('score-display').textContent = 
+                `Score: ${score}/${userAnswers.length}`;
+        }
+
+        function nextQuestion() {
+            if (currentQuestion < quizQuestions.length - 1) {
+                currentQuestion++;
+                loadQuestion(currentQuestion);
+            } else {
+                showQuizResults();
+            }
+        }
+
+        function previousQuestion() {
+            if (currentQuestion > 0) {
+                currentQuestion--;
+                loadQuestion(currentQuestion);
+            }
+        }
+
+        function showQuizResults() {
+            document.getElementById('quiz-container').style.display = 'none';
+            document.getElementById('quiz-results').style.display = 'block';
+            
+            const percentage = Math.round((score / quizQuestions.length) * 100);
+            document.getElementById('final-score').textContent = percentage + '%';
+            
+            let message = '';
+            if (percentage >= 90) {
+                message = 'Excellent! You have mastered MCP & A2A concepts! 🏆';
+            } else if (percentage >= 70) {
+                message = 'Great job! You have a solid understanding of the concepts. 🌟';
+            } else if (percentage >= 50) {
+                message = 'Good effort! Review the advanced topics section to improve. 📚';
+            } else {
+                message = 'Keep learning! Try going through the tutorial again. 💪';
+            }
+            
+            document.getElementById('result-message').textContent = message;
+        }
+
+        function restartQuiz() {
+            currentQuestion = 0;
+            userAnswers = [];
+            score = 0;
+            document.getElementById('quiz-container').style.display = 'block';
+            document.getElementById('quiz-results').style.display = 'none';
+            loadQuestion(0);
+        }
+
+        function showDetailedResults() {
+            let details = 'Detailed Results:\n\n';
+            quizQuestions.forEach((q, i) => {
+                const userAnswer = userAnswers[i];
+                const isCorrect = userAnswer === q.correct;
+                details += `Q${i + 1}: ${isCorrect ? '✓' : '✗'}\n`;
+                details += `Your answer: ${q.options[userAnswer] || 'Not answered'}\n`;
+                if (!isCorrect) {
+                    details += `Correct answer: ${q.options[q.correct]}\n`;
+                }
+                details += `Explanation: ${q.explanation}\n\n`;
+            });
+            alert(details);
+        }
+
+        // Helper Functions
+        function generateSessionId() {
+            return 'mcp-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
+        }
+
+        function generateSignature() {
+            return 'sig-' + Math.random().toString(36).substr(2, 16).toUpperCase();
+        }
+
+        function generateMockResult(tool) {
+            const results = {
+                database: {
+                    rows: Math.floor(Math.random() * 100),
+                    query_time: Math.floor(Math.random() * 500) + 'ms',
+                    status: 'success'
+                },
+                api: {
+                    endpoint: '/api/v2/data',
+                    response_code: 200,
+                    data: { items: Math.floor(Math.random() * 50) }
+                },
+                compute: {
+                    result: Math.random() * 1000,
+                    cpu_time: Math.floor(Math.random() * 1000) + 'ms',
+                    memory_used: Math.floor(Math.random() * 100) + 'MB'
+                },
+                storage: {
+                    operation: 'write',
+                    bytes: Math.floor(Math.random() * 1000000),
+                    location: 's3://bucket/path/file.dat'
+                }
+            };
+            return results[tool];
+        }
+
+        // Initialize quiz when page loads
+        window.addEventListener('load', () => {
+            initializeQuiz();
+        });
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced MCP & A2A Tutorial</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --secondary: #8b5cf6;
+            --accent: #ec4899;
+            --dark: #1e293b;
+            --light: #f1f5f9;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --gradient: linear-gradient(135deg, var(--primary), var(--secondary));
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            padding: 3rem 0;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glow-text {
+            font-size: 3.5rem;
+            font-weight: 900;
+            background: linear-gradient(45deg, #fff, #e0e7ff, #c7d2fe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 40px rgba(255,255,255,0.3);
+            animation: glow 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            0% { filter: brightness(1); }
+            100% { filter: brightness(1.2); }
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            margin-top: 1rem;
+            opacity: 0.95;
+            color: rgba(255,255,255,0.9);
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 1rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .nav-tab {
+            padding: 0.75rem 1.5rem;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 50px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-tab:hover {
+            transform: translateY(-2px);
+            background: rgba(255,255,255,0.2);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .nav-tab.active {
+            background: white;
+            color: var(--primary);
+            transform: scale(1.05);
+        }
+
+        .content-section {
+            display: none;
+            animation: slideIn 0.5s ease;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            margin: 2rem 0;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--gradient);
+        }
+
+        .card h2 {
+            color: var(--dark);
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card h3 {
+            color: var(--primary);
+            margin: 1.5rem 0 1rem;
+            font-size: 1.3rem;
+        }
+
+        .interactive-demo {
+            background: linear-gradient(135deg, #667eea15, #764ba215);
+            border-radius: 15px;
+            padding: 2rem;
+            margin: 2rem 0;
+            border: 2px dashed var(--primary);
+        }
+
+        .code-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin: 1rem 0;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        .code-block::before {
+            content: attr(data-lang);
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: var(--primary);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 5px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .highlight {
+            color: #fbbf24;
+        }
+
+        .comment {
+            color: #64748b;
+            font-style: italic;
+        }
+
+        .keyword {
+            color: #c084fc;
+        }
+
+        .string {
+            color: #86efac;
+        }
+
+        button {
+            background: var(--gradient);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 0.5rem;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            padding: 2rem;
+            background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+            border-radius: 15px;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+            gap: 2rem;
+        }
+
+        .flow-node {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            min-width: 150px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .flow-node:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+        }
+
+        .flow-arrow {
+            font-size: 2rem;
+            color: var(--primary);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .simulator {
+            background: #f8fafc;
+            border-radius: 15px;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+
+        .message-box {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+            min-height: 150px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: white;
+            border-radius: 50px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin: 0.5rem;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: blink 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: var(--success);
+        }
+
+        .status-dot.pending {
+            background: var(--warning);
+        }
+
+        .status-dot.error {
+            background: var(--error);
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .feature-card {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+            transform: rotate(45deg);
+            transition: all 0.5s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+
+        .feature-card:hover::after {
+            animation: shine 0.5s ease;
+        }
+
+        @keyframes shine {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e5e7eb;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--gradient);
+            width: 0%;
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        .quiz-section {
+            background: #f8fafc;
+            border-radius: 15px;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+
+        .quiz-option {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .quiz-option:hover {
+            border-color: var(--primary);
+            transform: translateX(5px);
+        }
+
+        .quiz-option.correct {
+            background: #10b98120;
+            border-color: var(--success);
+        }
+
+        .quiz-option.incorrect {
+            background: #ef444420;
+            border-color: var(--error);
+        }
+
+        .tooltip {
+            position: relative;
+            cursor: help;
+            color: var(--primary);
+            text-decoration: underline dotted;
+        }
+
+        .tooltip:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--dark);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            white-space: nowrap;
+            font-size: 0.9rem;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        @media (max-width: 768px) {
+            .glow-text {
+                font-size: 2rem;
+            }
+            
+            .flow-diagram {
+                flex-direction: column;
+            }
+            
+            .flow-arrow {
+                transform: rotate(90deg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="glow-text">MCP & A2A Advanced Tutorial</h1>
+            <p class="subtitle">Master Model Context Protocol & Application-to-Application Communication</p>
+        </header>
+
+        <div class="nav-tabs">
+            <div class="nav-tab active" onclick="showSection('overview')">📚 Overview</div>
+            <div class="nav-tab" onclick="showSection('mcp')">🔌 MCP Deep Dive</div>
+            <div class="nav-tab" onclick="showSection('a2a')">🔄 A2A Architecture</div>
+            <div class="nav-tab" onclick="showSection('simulator')">🎮 Live Simulator</div>
+            <div class="nav-tab" onclick="showSection('advanced')">🚀 Advanced Topics</div>
+            <div class="nav-tab" onclick="showSection('quiz')">📝 Knowledge Check</div>
+        </div>
+
+        <!-- Overview Section -->
+        <div id="overview" class="content-section active">
+            <div class="card">
+                <h2>🌟 Introduction to MCP & A2A</h2>
+                <p>Welcome to this comprehensive tutorial on <strong>Model Context Protocol (MCP)</strong> and <strong>Application-to-Application (A2A)</strong> communication. These technologies form the backbone of modern AI-powered applications and distributed systems.</p>
+                
+                <div class="feature-grid">
+                    <div class="feature-card" onclick="showSection('mcp')">
+                        <h3>Model Context Protocol</h3>
+                        <p>A standardized protocol for AI models to interact with external tools, services, and data sources while maintaining context and state.</p>
+                    </div>
+                    <div class="feature-card" onclick="showSection('a2a')">
+                        <h3>A2A Communication</h3>
+                        <p>Enterprise-grade messaging patterns enabling seamless, secure, and scalable communication between applications.</p>
+                    </div>
+                </div>
+
+                <h3>Why MCP & A2A Matter</h3>
+                <ul style="padding-left: 2rem; line-height: 2;">
+                    <li>🔐 <strong>Security:</strong> Built-in authentication and encryption</li>
+                    <li>⚡ <strong>Performance:</strong> Optimized for low-latency, high-throughput scenarios</li>
+                    <li>🔄 <strong>Reliability:</strong> Automatic retry mechanisms and fault tolerance</li>
+                    <li>📊 <strong>Scalability:</strong> Designed to handle millions of concurrent connections</li>
+                    <li>🎯 <strong>Context Preservation:</strong> Maintains state across complex interactions</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- MCP Section -->
+        <div id="mcp" class="content-section">
+            <div class="card">
+                <h2>🔌 Model Context Protocol Deep Dive</h2>
+                
+                <h3>Core Architecture</h3>
+                <div class="flow-diagram">
+                    <div class="flow-node">
+                        <strong>AI Model</strong>
+                        <br>
+                        <small>Claude, GPT, etc.</small>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-node">
+                        <strong>MCP Layer</strong>
+                        <br>
+                        <small>Protocol Handler</small>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-node">
+                        <strong>Tools/Services</strong>
+                        <br>
+                        <small>External Resources</small>
+                    </div>
+                </div>
+
+                <h3>MCP Message Structure</h3>
+                <div class="code-block" data-lang="JSON">
+{
+  <span class="string">"jsonrpc"</span>: <span class="string">"2.0"</span>,
+  <span class="string">"method"</span>: <span class="string">"tools/call"</span>,
+  <span class="string">"params"</span>: {
+    <span class="string">"name"</span>: <span class="string">"database_query"</span>,
+    <span class="string">"arguments"</span>: {
+      <span class="string">"query"</span>: <span class="string">"SELECT * FROM users WHERE active = true"</span>,
+      <span class="string">"timeout"</span>: <span class="highlight">5000</span>
+    }
+  },
+  <span class="string">"id"</span>: <span class="string">"msg_001"</span>
+}</div>
+
+                <h3>Key Components</h3>
+                
+                <div class="interactive-demo">
+                    <h4>🎯 Interactive MCP Flow Visualization</h4>
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                        <button onclick="simulateMCPFlow('init')">1. Initialize Connection</button>
+                        <button onclick="simulateMCPFlow('handshake')">2. Handshake</button>
+                        <button onclick="simulateMCPFlow('request')">3. Send Request</button>
+                        <button onclick="simulateMCPFlow('process')">4. Process</button>
+                        <button onclick="simulateMCPFlow('response')">5. Receive Response</button>
+                    </div>
+                    <div id="mcp-status" class="status-indicator" style="margin-top: 1rem;">
+                        <span class="status-dot pending"></span>
+                        <span>Ready to Start</span>
+                    </div>
+                    <div id="mcp-output" class="message-box">
+// MCP Communication Log
+// Click the buttons above to simulate the MCP flow
+</div>
+                </div>
+
+                <h3>Advanced MCP Features</h3>
+                
+                <h4>1. Context Management</h4>
+                <p>MCP maintains conversation context through <span class="tooltip" data-tooltip="Unique identifiers for each conversation thread">session IDs</span> and <span class="tooltip" data-tooltip="Compressed representation of conversation history">context tokens</span>.</p>
+                
+                <div class="code-block" data-lang="JavaScript">
+<span class="comment">// Context preservation example</span>
+<span class="keyword">class</span> <span class="highlight">MCPContext</span> {
+  <span class="keyword">constructor</span>() {
+    <span class="keyword">this</span>.sessionId = generateUUID();
+    <span class="keyword">this</span>.contextStack = [];
+    <span class="keyword">this</span>.maxContextSize = <span class="highlight">8192</span>; <span class="comment">// tokens</span>
+  }
+  
+  <span class="keyword">async</span> addContext(message) {
+    <span class="keyword">this</span>.contextStack.push({
+      timestamp: Date.now(),
+      content: message,
+      tokens: <span class="keyword">await</span> tokenize(message)
+    });
+    <span class="keyword">this</span>.pruneContext();
+  }
+  
+  pruneContext() {
+    <span class="comment">// Intelligent context pruning algorithm</span>
+    <span class="keyword">while</span> (<span class="keyword">this</span>.getTotalTokens() > <span class="keyword">this</span>.maxContextSize) {
+      <span class="keyword">this</span>.contextStack.shift();
+    }
+  }
+}</div>
+
+                <h4>2. Tool Registration</h4>
+                <p>MCP allows dynamic registration of tools and capabilities:</p>
+                
+                <div class="code-block" data-lang="TypeScript">
+<span class="keyword">interface</span> <span class="highlight">MCPTool</span> {
+  name: <span class="keyword">string</span>;
+  description: <span class="keyword">string</span>;
+  parameters: JSONSchema;
+  handler: <span class="keyword">async</span> (params: <span class="keyword">any</span>) => <span class="keyword">Promise</span>&lt;<span class="keyword">any</span>&gt;;
+}
+
+<span class="keyword">const</span> registerTool = <span class="keyword">async</span> (tool: MCPTool) => {
+  <span class="keyword">const</span> registration = {
+    jsonrpc: <span class="string">"2.0"</span>,
+    method: <span class="string">"tools/register"</span>,
+    params: {
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.parameters
+    }
+  };
+  
+  <span class="keyword">await</span> mcpClient.send(registration);
+};</div>
+
+                <h4>3. Error Handling & Recovery</h4>
+                <div class="progress-bar">
+                    <div id="mcp-progress" class="progress-fill">0%</div>
+                </div>
+                <button onclick="demonstrateMCPResilience()">Demonstrate Resilience Features</button>
+            </div>
+        </div>
+
+        <!-- A2A Section -->
+        <div id="a2a" class="content-section">
+            <div class="card">
+                <h2>🔄 A2A Architecture & Patterns</h2>
+                
+                <h3>Communication Patterns</h3>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h4>Request-Response</h4>
+                        <p>Synchronous communication where the sender waits for a response.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>Publish-Subscribe</h4>
+                        <p>Asynchronous messaging where publishers send messages to topics.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>Message Queue</h4>
+                        <p>Reliable delivery with guaranteed processing order.</p>
+                    </div>
+                </div>
+
+                <h3>A2A Message Format</h3>
+                <div class="code-block" data-lang="JSON">
+{
+  <span class="string">"header"</span>: {
+    <span class="string">"messageId"</span>: <span class="string">"a2a-msg-123456"</span>,
+    <span class="string">"timestamp"</span>: <span class="string">"2024-01-15T10:30:00Z"</span>,
+    <span class="string">"source"</span>: <span class="string">"service-a"</span>,
+    <span class="string">"destination"</span>: <span class="string">"service-b"</span>,
+    <span class="string">"correlationId"</span>: <span class="string">"corr-789"</span>,
+    <span class="string">"priority"</span>: <span class="highlight">1</span>
+  },
+  <span class="string">"payload"</span>: {
+    <span class="string">"action"</span>: <span class="string">"processOrder"</span>,
+    <span class="string">"data"</span>: {
+      <span class="string">"orderId"</span>: <span class="string">"ORD-2024-001"</span>,
+      <span class="string">"items"</span>: [...]
+    }
+  },
+  <span class="string">"metadata"</span>: {
+    <span class="string">"encryption"</span>: <span class="string">"AES-256-GCM"</span>,
+    <span class="string">"compression"</span>: <span class="string">"gzip"</span>
+  }
+}</div>
+
+                <h3>Security & Authentication</h3>
+                
+                <div class="interactive-demo">
+                    <h4>🔐 A2A Security Demonstration</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <h5>Application A</h5>
+                            <input type="text" id="a2a-message" placeholder="Enter message" style="width: 100%; padding: 0.5rem; margin: 0.5rem 0; border-radius: 5px; border: 1px solid #ddd;">
+                            <button onclick="encryptA2AMessage()">Encrypt & Send</button>
+                        </div>
+                        <div>
+                            <h5>Application B</h5>
+                            <div id="received-message" class="message-box" style="min-height: 100px;">
+Waiting for message...
+</div>
+                            <button onclick="decryptA2AMessage()">Decrypt Message</button>
+                        </div>
+                    </div>
+                    <div id="a2a-security-log" class="message-box" style="margin-top: 1rem;">
+// Security Operations Log
+</div>
+                </div>
+
+                <h3>Advanced A2A Concepts</h3>
+                
+                <h4>1. Circuit Breaker Pattern</h4>
+                <div class="code-block" data-lang="JavaScript">
+<span class="keyword">class</span> <span class="highlight">CircuitBreaker</span> {
+  <span class="keyword">constructor</span>(threshold = <span class="highlight">5</span>, timeout = <span class="highlight">60000</span>) {
+    <span class="keyword">this</span>.failureCount = <span class="highlight">0</span>;
+    <span class="keyword">this</span>.threshold = threshold;
+    <span class="keyword">this</span>.timeout = timeout;
+    <span class="keyword">this</span>.state = <span class="string">'CLOSED'</span>; <span class="comment">// CLOSED, OPEN, HALF_OPEN</span>
+    <span class="keyword">this</span>.nextAttempt = Date.now();
+  }
+  
+  <span class="keyword">async</span> call(fn) {
+    <span class="keyword">if</span> (<span class="keyword">this</span>.state === <span class="string">'OPEN'</span>) {
+      <span class="keyword">if</span> (Date.now() < <span class="keyword">this</span>.nextAttempt) {
+        <span class="keyword">throw new</span> Error(<span class="string">'Circuit breaker is OPEN'</span>);
+      }
+      <span class="keyword">this</span>.state = <span class="string">'HALF_OPEN'</span>;
+    }
+    
+    <span class="keyword">try</span> {
+      <span class="keyword">const</span> result = <span class="keyword">await</span> fn();
+      <span class="keyword">this</span>.onSuccess();
+      <span class="keyword">return</span> result;
+    } <span class="keyword">catch</span> (error) {
+      <span class="keyword">this</span>.onFailure();
+      <span class="keyword">throw</span> error;
+    }
+  }
+}</div>
+
+                <h4>2. Message Routing</h4>
+                <p>Intelligent routing based on content, priority, and load:</p>
+                
+                <div class="flow-diagram">
+                    <div class="flow-node">
+                        <strong>Message Router</strong>
+                        <br>
+                        <small>Analyzes & Routes</small>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div class="flow-arrow">→</div>
+                        <div class="flow-arrow">→</div>
+                        <div class="flow-arrow">→</div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div class="flow-node">
+                            <strong>Service 1</strong>
+                            <br>
+                            <small>High Priority</small>
+                        </div>
+                        <div class="flow-node">
+                            <strong>Service 2</strong>
+                            <br>
+                            <small>Normal Load</small>
+                        </div>
+                        <div class="flow-node">
+                            <strong>Service 3</strong>
+                            <br>
+                            <small>Batch Process</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Simulator Section -->
+        <div id="simulator" class="content-section">
+            <div class="card">
+                <h2>🎮 Live MCP & A2A Simulator</h2>
+                
+                <div class="simulator">
+                    <h3>Real-time Communication Simulator</h3>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                        <div>
+                            <h4>MCP Client (AI Model)</h4>
+                            <select id="tool-select" style="width: 100%; padding: 0.5rem; margin: 0.5rem 0; border-radius: 5px;">
+                                <option value="database">Database Query</option>
+                                <option value="api">API Call</option>
+                                <option value="compute">Compute Task</option>
+                                <option value="storage">Storage Operation</option>
+                            </select>
+                            <textarea id="mcp-params" placeholder="Enter parameters (JSON)" style="width: 100%; padding: 0.5rem; margin: 0.5rem 0; border-radius: 5px; border: 1px solid #ddd; min-height: 100px; font-family: monospace;"></textarea>
+                            <button onclick="executeMCPCall()">Execute MCP Call</button>
+                        </div>
+                        
+                        <div>
+                            <h4>A2A Service Endpoint</h4>
+                            <div class="status-indicator">
+                                <span id="service-status" class="status-dot connected"></span>
+                                <span>Service Active</span>
+                            </div>
+                            <div id="service-response" class="message-box">
+// Service endpoint ready
+// Waiting for incoming requests...
+</div>
+                        </div>
+                    </div>
+                    
+                    <h4>Communication Log</h4>
+                    <div id="comm-log" class="message-box" style="min-height: 200px; max-height: 400px; overflow-y: auto;">
+// Full communication trace will appear here
+</div>
+                    
+                    <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                        <button onclick="clearLogs()">Clear Logs</button>
+                        <button onclick="exportLogs()">Export Logs</button>
+                        <button onclick="runBenchmark()">Run Performance Benchmark</button>
+                    </div>
+                </div>
+                
+                <div class="interactive-demo">
+                    <h3>🚀 Load Testing Dashboard</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1rem 0;">
+                        <div style="text-align: center;">
+                            <h5>Requests/sec</h5>
+                            <div id="rps-counter" style="font-size: 2rem; color: var(--primary); font-weight: bold;">0</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <h5>Avg Latency</h5>
+                            <div id="latency-counter" style="font-size: 2rem; color: var(--secondary); font-weight: bold;">0ms</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <h5>Success Rate</h5>
+                            <div id="success-rate" style="font-size: 2rem; color: var(--success); font-weight: bold;">100%</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <h5>Active Connections</h5>
+                            <div id="connections" style="font-size: 2rem; color: var(--accent); font-weight: bold;">0</div>
+                        </div>
+                    </div>
+                    <canvas id="performance-chart" width="400" height="200" style="width: 100%; max-height: 200px; background: white; border-radius: 10px; padding: 1rem;"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Topics Section -->
+        <div id="advanced" class="content-section">
+            <div class="card">
+                <h2>🚀 Advanced Topics</h2>
+                
+                <h3>1. Distributed Tracing</h3>
+                <p>Understanding request flow across multiple services:</p>
+                
+                <div class="code-block" data-lang="JavaScript">
+<span class="comment">// OpenTelemetry integration for MCP & A2A</span>
+<span class="keyword">import</span> { trace, context } <span class="keyword">from</span> <span class="string">'@opentelemetry/api'</span>;
+
+<span class="keyword">const</span> tracer = trace.getTracer(<span class="string">'mcp-a2a-service'</span>);
+
+<span class="keyword">async</span> <span class="keyword">function</span> <span class="highlight">tracedMCPCall</span>(toolName, params) {
+  <span class="keyword">const</span> span = tracer.startSpan(<span class="string">`mcp.call.${toolName}`</span>, {
+    attributes: {
+      <span class="string">'mcp.tool'</span>: toolName,
+      <span class="string">'mcp.params.size'</span>: JSON.stringify(params).length
+    }
+  });
+  
+  <span class="keyword">try</span> {
+    <span class="comment">// Add trace context to MCP headers</span>
+    <span class="keyword">const</span> traceContext = {
+      traceId: span.spanContext().traceId,
+      spanId: span.spanContext().spanId,
+      traceFlags: span.spanContext().traceFlags
+    };
+    
+    <span class="keyword">const</span> result = <span class="keyword">await</span> mcpClient.call(toolName, {
+      ...params,
+      _trace: traceContext
+    });
+    
+    span.setStatus({ code: SpanStatusCode.OK });
+    <span class="keyword">return</span> result;
+  } <span class="keyword">catch</span> (error) {
+    span.recordException(error);
+    span.setStatus({ code: SpanStatusCode.ERROR });
+    <span class="keyword">throw</span> error;
+  } <span class="keyword">finally</span> {
+    span.end();
+  }
+}

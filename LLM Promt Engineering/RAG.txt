@@ -1,0 +1,3 @@
+https://docs.langchain.com/oss/python/langchain/retrieval
+
+https://drive.google.com/drive/folders/1bxtNnbark1D0p4JFbiIDYa0bwpInk6xB

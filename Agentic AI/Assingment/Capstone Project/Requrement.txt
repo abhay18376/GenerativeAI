@@ -1,0 +1,13 @@
+Multi-Agent Architecture to Implement  using CrewAI framework  for agent orchestration
+
+Agent 1 name --  CSV Reader Agent               --fuctionality  -- Reads and parses feedback data from CSV files 1. app_store_reviews.csv  2. support_emails.csv
+Agent 2 name --  Feedback Classifier Agent      --fuctionality  -- Categorizes feedback using NLP (bug, feature request, praise, complaint, spam) expected output should be as expected_classifications.csv
+Agent 3 name --  Bug Analysis Agent             --fuctionality  -- Extracts technical details: steps to reproduce, platform info, severity assessment
+Agent 4 name --  Feature Extractor Agent        --fuctionality  -- Identifies feature requests and estimates user impact/demand
+Agent 5 name --  Ticket Creator Agent           --fuctionality  -- Generates structured tickets and logs them to output CSV files
+Agent 6 name --  Quality Critic Agent           --fuctionality  -- Reviews generated tickets for completeness and accuracy
+
+Output Files:
+generated_tickets.csv: Final ticket output with proper structure
+processing_log.csv: Detailed processing history and decisions
+metrics.csv: Performance and accuracy metrics

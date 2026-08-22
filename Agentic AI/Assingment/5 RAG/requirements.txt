@@ -1,0 +1,8 @@
+python-dotenv>=1.0.1
+pandas>=2.0.0
+numpy>=1.24.0
+gradio>=4.44.0
+llama-index>=0.11.0
+llama-index-embeddings-cohere>=0.2.0
+llama-index-llms-cohere>=0.2.0
+cohere>=5.9.0

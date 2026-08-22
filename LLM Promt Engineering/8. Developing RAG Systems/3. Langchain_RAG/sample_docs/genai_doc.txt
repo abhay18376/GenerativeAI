@@ -1,0 +1,28 @@
+What is Generative AI?
+Generative AI can generate new content such as text, images, audio, and video that resembles what humans can produce. It is effective at recognising patterns (in video, audio, text or images) and emulating them when tasked with producing something.
+
+Purpose and Audience
+The purpose of the Framework is to provide guidance on understanding, using and responding to generative AI in Australian school‑based education. It supports policy makers, school leaders, teachers, support staff, parents and students. It does not address other forms of artificial intelligence, including predictive AI.
+The Framework is aspirational in nature, defining what safe, ethical and responsible use of generative AI should look like to support better school outcomes. The Framework’s Principles and Guiding Statements are designed to help jurisdictions and sectors align existing approaches while also supporting the development of future work.
+
+Design of the Framework
+
+The Framework is designed to help Australian school communities (students, teachers, staff, parents and carers) support:
+Education outcomes: The Framework aims to recognise how the appropriate use of generative AI tools can enhance teaching and learning outcomes for all members of Australian school communities.
+Ethical practices: The Framework aims to achieve the safe, responsible and ethical use of generative AI tools in Australian schools.
+Equity and inclusion: The Framework aims to ensure that generative AI tools are used in ways that are fair, accessible and inclusive of all Australian school communities.
+These goals are the basis of the Framework’s 6 Principles and 25 Guiding Statements. Figure 1 provides a high-level illustration of the Framework, highlighting the interconnectedness of the Principles.
+
+
+Figure 1: Visualisation of Australian Framework for Generative AI in Schools
+
+Opportunities and Risks
+Generative AI technology has great potential to assist teaching and learning and reduce administrative workload in Australian schools. The growing accessibility and sophistication of generative AI tools provides opportunities to develop human-like generated text and rich multimedia content in a way that has not previously been possible.
+To fully harness the potential of high quality and safe generative AI, schools will need to be supported in understanding and appropriately managing a range of privacy, security and ethical considerations. Risk management should also be appropriate for the potential consequences. These consequences include the potential for errors and algorithmic bias in generative AI content; the misuse of personal or confidential information; and the use of generative AI for inappropriate purposes, such as to discriminate against individuals or groups, or to undermine the integrity of student assessments. Appropriate and proportionate risk management will require robust guidance and policy, which the Framework aims to support.
+About the Framework
+In February 2023, Education Ministers agreed that responding to the risks and harnessing opportunities for Australian schools and students arising from generative AI technologies is a national education priority. Ministers agreed to develop an evidence-informed, best practice framework for Australian schools.
+The Framework was developed in consultation with unions, teachers, students, industry, academics, and parent and school representative bodies from all sectors. It was developed by the National AI in Schools Taskforce comprised of representatives from all jurisdictions, school sectors, and the national agencies - Educational Services Australia (ESA), Australian Curriculum, Assessment and Reporting Authority (ACARA), Australian Institute for Teaching and School Leadership (AITSL), and Australian Education Research Organisation (AERO).
+The Framework aligns to existing national policies and goals. It complements Australia’s Artificial Intelligence Ethics Framework, and the two key goals of The Alice Springs (Mparntwe) Education Declaration: promoting equity and excellence in education; and enabling all young Australians to become confident and creative individuals, successful lifelong learners, and active and informed members of the community. Additionally, the Framework aligns to the United Nations sustainable development goal #4: Ensure inclusive and equitable quality education and promote lifelong learning opportunities for all. It also aligns with the Safer Technologies for Schools (ST4S) initiative which aims to enhance the security, privacy and online safety of software services and applications commonly used in Australian schools.
+Any policy development or amendments made to align with the Framework should also consider the Australian Professional Standards for Teachers (APST), Privacy Act 1988, Copyright Act 1968, the eSafety Commissioner’s Best Practice Framework for Online Safety Education, and Australia’s human rights protections. Where applicable, policies developed in alignment with the Framework must also meet existing government commitments to incorporate Indigenous community partnerships and expert reviews. Policies must also meet government obligations to ensure Indigenous communities have access to locally relevant data and information as per Closing the Gap Priority Reform 4.
+Review
+The Framework will be reviewed by Education Ministers within 12 months of publication and every 12 months thereafter to accommodate the fast-moving pace of technological development in generative AI. Education Ministers may determine to review the Framework more frequently at their discretion.

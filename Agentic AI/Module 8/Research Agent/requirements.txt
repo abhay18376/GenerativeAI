@@ -1,0 +1,6 @@
+streamlit==1.45.0
+autogen==0.9.1.post0
+google-generativeai==0.8.5
+python-docx==1.1.2
+fpdf==1.7.2
+ag2[gemini]
