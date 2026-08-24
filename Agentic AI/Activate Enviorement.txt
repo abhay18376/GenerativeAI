@@ -1,2 +1,0 @@
- C:/Users/ABHAY/anaconda3/Scripts/activate
-conda activate gpu_free
