@@ -1,2 +1,0 @@
-cohere register to cher
-https://docs.cohere.com/docs/fine-tuning-with-the-cohere-dashboard

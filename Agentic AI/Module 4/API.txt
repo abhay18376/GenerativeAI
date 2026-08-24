@@ -1,5 +1,0 @@
-https://www.alphavantage.co/
-Welcome to Alpha Vantage! Your dedicated access key is: UOBGTSVIYQSY4AUQ. Please record this API key at a safe place for future data access.
-
-https://console.groq.com/keys
-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

@@ -1,1 +1,0 @@
-https://langchain-ai.github.io/langgraphjs/cloud/how-tos/generative_ui_react/
