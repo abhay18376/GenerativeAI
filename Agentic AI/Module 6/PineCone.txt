@@ -1,6 +1,0 @@
-https://app.pinecone.io/
-
-pcsk_5vzmbG_N7yAMDGKoevcx9z4dp39vv6RdrwLQ6xBy5WTwKGB7KybWqsNC8VFVZBS8t3cnyN
-
-python -m streamlit run .\app4.py
-
