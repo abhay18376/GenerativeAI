@@ -1,8 +1,0 @@
-{"event": "plan", "query": "compare the marketing strategies of Alpha Tech and BetaSense", "plan": [{"step": "classify_intent", "intent": "comparison"}, {"step": "retrieve", "k": 6}, {"step": "synthesize", "model": "command-a-03-2025"}], "ts": "2025-10-11T14:47:41.677814"}
-{"event": "retrieval", "retrieved": 3, "ts": "2025-10-11T14:47:42.111782"}
-{"event": "plan", "query": "compare the marketing strategies of Alpha Tech and BetaSense", "plan": [{"step": "classify_intent", "intent": "comparison"}, {"step": "retrieve", "k": 6}, {"step": "synthesize", "model": "command-a-03-2025"}], "ts": "2025-10-11T14:48:03.407261"}
-{"event": "retrieval", "retrieved": 3, "ts": "2025-10-11T14:48:05.513683"}
-{"event": "plan", "query": "compare the marketing strategies of Alpha Tech and BetaSense", "plan": [{"step": "classify_intent", "intent": "comparison"}, {"step": "retrieve", "k": 6}, {"step": "synthesize", "model": "command-a-03-2025"}], "ts": "2025-10-11T14:48:35.991461"}
-{"event": "retrieval", "retrieved": 3, "ts": "2025-10-11T14:48:36.413892"}
-{"event": "plan", "query": "compare the marketing strategies of Alpha Tech and BetaSense", "plan": [{"step": "classify_intent", "intent": "comparison"}, {"step": "retrieve", "k": 6}, {"step": "synthesize", "model": "command-a-03-2025"}], "ts": "2025-10-11T14:53:09.998432"}
-{"event": "retrieval", "retrieved": 3, "ts": "2025-10-11T14:53:10.429249"}
