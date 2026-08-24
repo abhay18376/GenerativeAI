@@ -1,1 +1,0 @@
-https://docs.weaviate.io/weaviate/concepts/vector-index
