@@ -1,8 +1,0 @@
-llama-index        
-pandas               
-numpy               
-cohere                
-tqdm                 
-requests            
-typing-extensions   
-python-dotenv         
